@@ -1,6 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
 import FileUpload from './components/FileUpload';
 import DayTimeline from './components/DayTimeline';
+import SessionDetail from './components/SessionDetail';
+import HrvChart from './components/HrvChart';
 import DaySelector from './components/DaySelector';
 import SessionCard from './components/SessionCard';
 import { parseCSV } from './lib/csvParser';
@@ -19,7 +21,8 @@ export default function App() {
     setDays(enriched);
     setFileName(name);
     if (enriched.length > 0) {
-      setSelectedDate(enriched[enriched.length - 1].date);
+      // Default to first day (most likely has the actual data)
+      setSelectedDate(enriched[0].date);
     }
   }, []);
 
@@ -108,24 +111,42 @@ export default function App() {
               )}
             </div>
 
-            {/* Timeline chart */}
+            {/* Full day HR timeline */}
             <DayTimeline
               data={chartData}
               baselineHR={currentDay?.baselineHR ?? null}
               sessions={sessions}
             />
 
-            {/* Detected sessions */}
-            {sessions.length > 0 && (
-              <div className="space-y-4">
-                <h2 className="text-sm font-medium tracking-wide text-gray-400 uppercase">
-                  Detected Sauna Sessions
-                </h2>
-                {sessions.map((session, i) => (
-                  <SessionCard key={i} session={session} index={i} />
-                ))}
+            {/* Per-session detail views */}
+            {sessions.map((session, i) => (
+              <div key={i} className="space-y-6">
+                {/* Session Detail zoomed chart */}
+                {currentDay?.baselineHR != null && (
+                  <SessionDetail
+                    data={chartData}
+                    session={session}
+                    baselineHR={currentDay.baselineHR}
+                  />
+                )}
+
+                {/* HRV chart + Session Summary side by side */}
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {currentDay && (
+                    <HrvChart
+                      records={currentDay.records}
+                      session={session}
+                    />
+                  )}
+                  {currentDay?.baselineHR != null && (
+                    <SessionCard
+                      session={session}
+                      baselineHR={currentDay.baselineHR}
+                    />
+                  )}
+                </div>
               </div>
-            )}
+            ))}
 
             {sessions.length === 0 && currentDay && (
               <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 text-center text-gray-500">

@@ -130,6 +130,24 @@ export function detectSaunaSessions(
       120
     );
 
+    // Compute active energy and steps during session window
+    const sessionEndIdx = recovery
+      ? records.findIndex((r) => r.timestamp.getTime() >= recovery.endTime.getTime())
+      : w.endIdx;
+    const endIdx = sessionEndIdx >= 0 ? sessionEndIdx : w.endIdx;
+
+    let activeEnergyKJ = 0;
+    let sessionSteps = 0;
+    for (let i = expandedStartIdx; i <= endIdx; i++) {
+      if (records[i].activeEnergy !== null) activeEnergyKJ += records[i].activeEnergy!;
+      if (records[i].stepCount !== null) sessionSteps += records[i].stepCount!;
+    }
+
+    const hrvChangePercent =
+      preHRV !== null && postHRV !== null && preHRV > 0
+        ? Math.round(((postHRV - preHRV) / preHRV) * 100)
+        : null;
+
     sessions.push({
       startTime: records[expandedStartIdx].timestamp,
       endTime: recovery?.endTime ?? records[w.endIdx].timestamp,
@@ -140,6 +158,9 @@ export function detectSaunaSessions(
       preHRV,
       postHRV,
       elevationAboveBaseline: w.peakHR - baselineHR,
+      activeEnergyKJ,
+      totalSteps: Math.round(sessionSteps),
+      hrvChangePercent,
     });
   }
 

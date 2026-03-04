@@ -26,6 +26,9 @@ export interface SaunaSession {
   preHRV: number | null;
   postHRV: number | null;
   elevationAboveBaseline: number | null;
+  activeEnergyKJ: number;
+  totalSteps: number;
+  hrvChangePercent: number | null;
 }
 
 export interface ChartDataPoint {
