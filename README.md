@@ -1,73 +1,48 @@
-# React + TypeScript + Vite
+# DayShape
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A passive health data review app that turns whole-day Apple Watch data into a story. Import a Health Auto Export CSV and instantly see your heart rate timeline, detected sauna sessions, HRV trends, and recovery metrics.
 
-Currently, two official plugins are available:
+## Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Prerequisites
 
-## React Compiler
+- [Node.js](https://nodejs.org/) v20.19+ or v22.12+
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Install & Run
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd dayshape
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open **http://localhost:5173** in your browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Usage
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+1. Export a CSV from **Health Auto Export** (iOS) at per-minute granularity
+2. Drag and drop the CSV onto the upload zone (or click to browse)
+3. The app parses the data, detects sauna sessions, and renders:
+   - Full-day heart rate timeline with area fill and baseline
+   - Zoomed session detail chart with peak and recovery annotations
+   - HRV bar chart with post-sauna highlighting
+   - Session summary table (peak HR, elevation, recovery time, HRV change, energy, steps)
+
+### Build for Production
+
+```bash
+npm run build
 ```
+
+Output goes to `dist/`.
+
+## Tech Stack
+
+- Vite + React + TypeScript
+- Tailwind CSS v4 (dark theme)
+- Recharts
+- PapaParse
+
+## Data Privacy
+
+All processing happens client-side in the browser. No data is uploaded to any server.
