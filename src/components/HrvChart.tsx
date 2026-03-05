@@ -10,18 +10,26 @@ import {
   ReferenceLine,
   Label,
 } from 'recharts';
-import type { HealthRecord, SaunaSession } from '../lib/types';
+import type { HealthRecord, DetectedEvent } from '../lib/types';
+
+const LABEL_NAMES: Record<string, string> = {
+  sauna: 'sauna',
+  walk: 'walk',
+  workout: 'workout',
+  cold_plunge: 'cold plunge',
+  other: 'activity',
+};
 
 interface HrvChartProps {
   records: HealthRecord[];
-  session: SaunaSession | null;
+  event: DetectedEvent | null;
 }
 
 interface HrvDataPoint {
   time: string;
   timeMinutes: number;
   hrv: number;
-  isPostSauna: boolean;
+  isPostEvent: boolean;
 }
 
 function formatTime(d: Date): string {
@@ -36,37 +44,39 @@ interface TooltipPayloadEntry {
 interface CustomTooltipProps {
   active?: boolean;
   payload?: TooltipPayloadEntry[];
+  postLabel: string;
 }
 
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, postLabel }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
     <div className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2 text-sm shadow-lg">
       <p className="font-medium text-gray-300">{d.time}</p>
       <p className="text-violet-400">HRV: {Math.round(d.hrv)} ms</p>
-      {d.isPostSauna && (
-        <p className="text-xs text-yellow-400">Post-sauna reading</p>
+      {d.isPostEvent && (
+        <p className="text-xs text-yellow-400">Post-{postLabel} reading</p>
       )}
     </div>
   );
 }
 
-export default function HrvChart({ records, session }: HrvChartProps) {
-  const sessionEndMinute = session
-    ? session.endTime.getHours() * 60 + session.endTime.getMinutes()
+export default function HrvChart({ records, event }: HrvChartProps) {
+  const sessionEndMinute = event
+    ? event.endTime.getHours() * 60 + event.endTime.getMinutes()
     : null;
-  const sessionStartMinute = session
-    ? session.startTime.getHours() * 60 + session.startTime.getMinutes()
+  const sessionStartMinute = event
+    ? event.startTime.getHours() * 60 + event.startTime.getMinutes()
     : null;
+
+  const postLabel = LABEL_NAMES[event?.label ?? 'other'] ?? 'activity';
 
   const hrvReadings: HrvDataPoint[] = records
     .filter((r) => r.hrv !== null)
     .map((r) => {
       const timeMin = r.timestamp.getHours() * 60 + r.timestamp.getMinutes();
-      // Post-sauna = first HRV reading after session end
-      const isPostSauna =
-        session !== null &&
+      const isPostEvent =
+        event !== null &&
         sessionEndMinute !== null &&
         sessionStartMinute !== null &&
         timeMin > sessionStartMinute &&
@@ -75,7 +85,7 @@ export default function HrvChart({ records, session }: HrvChartProps) {
         time: formatTime(r.timestamp),
         timeMinutes: timeMin,
         hrv: r.hrv!,
-        isPostSauna,
+        isPostEvent,
       };
     });
 
@@ -108,18 +118,18 @@ export default function HrvChart({ records, session }: HrvChartProps) {
               style: { fill: '#6b7280', fontSize: 10 },
             }}
           />
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip content={<CustomTooltip postLabel={postLabel} />} />
 
-          {/* Mark post-sauna region */}
-          {session && hrvReadings.some((d) => d.isPostSauna) && (
+          {/* Mark post-event region */}
+          {event && hrvReadings.some((d) => d.isPostEvent) && (
             <ReferenceLine
-              x={hrvReadings.find((d) => d.isPostSauna)?.time}
+              x={hrvReadings.find((d) => d.isPostEvent)?.time}
               stroke="#eab308"
               strokeDasharray="3 3"
               strokeOpacity={0.5}
             >
               <Label
-                value="Post-sauna"
+                value={`Post-${postLabel}`}
                 position="top"
                 style={{ fill: '#eab308', fontSize: 10 }}
               />
@@ -130,8 +140,8 @@ export default function HrvChart({ records, session }: HrvChartProps) {
             {hrvReadings.map((entry, i) => (
               <Cell
                 key={i}
-                fill={entry.isPostSauna ? '#eab308' : '#8b5cf6'}
-                fillOpacity={entry.isPostSauna ? 0.8 : 0.6}
+                fill={entry.isPostEvent ? '#eab308' : '#8b5cf6'}
+                fillOpacity={entry.isPostEvent ? 0.8 : 0.6}
               />
             ))}
           </Bar>

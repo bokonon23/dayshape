@@ -1,4 +1,4 @@
-import type { HealthRecord, SaunaSession } from './types';
+import type { HealthRecord, DetectedEvent, ActivityType } from './types';
 import { computeRecoveryTime, findNearestHRV } from './hrAnalysis';
 
 interface ElevatedWindow {
@@ -8,29 +8,53 @@ interface ElevatedWindow {
   peakIdx: number;
 }
 
-const ELEVATION_THRESHOLD = 30; // bpm above baseline to flag as elevated
-const MIN_PEAK_HR = 120; // minimum peak to qualify as sauna
-const GAP_TOLERANCE_MINUTES = 15; // max gap between elevated readings to merge (sparse data)
-const MIN_DURATION_MINUTES = 3; // minimum duration of elevated HR
-const MAX_STEPS_PER_MINUTE = 120; // filter out running (150+/min) but allow sauna approach walking
-const RAMP_WINDOW_MINUTES = 10; // look back for ramp-up before first spike
+// Baseline-relative thresholds
+const ELEVATION_MULTIPLIER = 1.5;     // HR must exceed baseline * this to flag as elevated
+const PEAK_MULTIPLIER = 1.9;          // peak must reach baseline * this to qualify as event
+const GAP_TOLERANCE_MINUTES = 20;     // max gap between elevated readings to merge (sparse data)
+const MIN_DURATION_MINUTES = 3;       // minimum duration of elevated HR
+const RAMP_WINDOW_MINUTES = 10;       // look back for ramp-up before first spike
+
+function formatDateId(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}_${d.getTime()}`;
+}
+
+function suggestLabel(
+  avgStepsPerMinute: number,
+  peakHR: number,
+  baselineHR: number,
+  durationMinutes: number
+): ActivityType {
+  if (avgStepsPerMinute > 80) {
+    return peakHR > baselineHR * 2.5 ? 'workout' : 'walk';
+  }
+  if (durationMinutes < 5) {
+    return 'cold_plunge';
+  }
+  return 'sauna';
+}
 
 /**
- * Detect sauna sessions from a day's health records.
+ * Detect elevated HR events from a day's health records using baseline-relative thresholds.
  *
  * Algorithm:
- * 1. Find all HR readings above baseline + threshold
+ * 1. Find all HR readings above baseline * ELEVATION_MULTIPLIER
  * 2. Group adjacent elevated readings (allowing gaps for sparse data)
- * 3. Filter by peak HR, duration, and low step count
+ * 3. Filter by peak HR (must reach baseline * PEAK_MULTIPLIER), duration
  * 4. Expand window to include ramp-up and compute recovery
+ * 5. Suggest an activity label based on steps, peak HR, duration
  */
-export function detectSaunaSessions(
+export function detectEvents(
   records: HealthRecord[],
   baselineHR: number | null
-): SaunaSession[] {
+): DetectedEvent[] {
   if (baselineHR === null) return [];
 
-  const elevationTarget = baselineHR + ELEVATION_THRESHOLD;
+  const elevationTarget = baselineHR * ELEVATION_MULTIPLIER;
+  const peakTarget = baselineHR * PEAK_MULTIPLIER;
 
   // Step 1: Find elevated readings
   const elevated: number[] = [];
@@ -59,7 +83,6 @@ export function detectSaunaSessions(
       (1000 * 60);
 
     if (gapMinutes <= GAP_TOLERANCE_MINUTES) {
-      // Extend current window
       windowEnd = idx;
       const hr = records[idx].heartRateAvg!;
       if (hr > peakHR) {
@@ -67,7 +90,6 @@ export function detectSaunaSessions(
         peakIdx = idx;
       }
     } else {
-      // Close current window, start new one
       windows.push({ startIdx: windowStart, endIdx: windowEnd, peakHR, peakIdx });
       windowStart = idx;
       windowEnd = idx;
@@ -77,12 +99,12 @@ export function detectSaunaSessions(
   }
   windows.push({ startIdx: windowStart, endIdx: windowEnd, peakHR, peakIdx });
 
-  // Step 3: Filter windows
-  const sessions: SaunaSession[] = [];
+  // Step 3: Filter windows and build events
+  const events: DetectedEvent[] = [];
 
   for (const w of windows) {
-    // Check peak HR
-    if (w.peakHR < MIN_PEAK_HR) continue;
+    // Check peak HR against baseline-relative threshold
+    if (w.peakHR < peakTarget) continue;
 
     // Check duration
     const durationMinutes =
@@ -91,7 +113,7 @@ export function detectSaunaSessions(
       (1000 * 60);
     if (durationMinutes < MIN_DURATION_MINUTES) continue;
 
-    // Check step count during window — sauna should have very few steps
+    // Compute steps during window
     let totalSteps = 0;
     let stepReadings = 0;
     for (let i = w.startIdx; i <= w.endIdx; i++) {
@@ -102,7 +124,6 @@ export function detectSaunaSessions(
     }
     const avgStepsPerMinute =
       stepReadings > 0 ? totalSteps / Math.max(durationMinutes, 1) : 0;
-    if (avgStepsPerMinute > MAX_STEPS_PER_MINUTE) continue;
 
     // Step 4: Expand start to include ramp-up
     let expandedStartIdx = w.startIdx;
@@ -148,11 +169,15 @@ export function detectSaunaSessions(
         ? Math.round(((postHRV - preHRV) / preHRV) * 100)
         : null;
 
-    sessions.push({
+    const suggested = suggestLabel(avgStepsPerMinute, w.peakHR, baselineHR, durationMinutes);
+
+    events.push({
+      id: formatDateId(records[expandedStartIdx].timestamp),
       startTime: records[expandedStartIdx].timestamp,
       endTime: recovery?.endTime ?? records[w.endIdx].timestamp,
       peakHR: w.peakHR,
       peakTime: records[w.peakIdx].timestamp,
+      durationMinutes: Math.round(durationMinutes),
       recoveryMinutes: recovery?.minutes ?? null,
       recoveryEndTime: recovery?.endTime ?? null,
       preHRV,
@@ -161,8 +186,13 @@ export function detectSaunaSessions(
       activeEnergyKJ,
       totalSteps: Math.round(sessionSteps),
       hrvChangePercent,
+      avgStepsPerMinute: Math.round(avgStepsPerMinute),
+      label: null,
+      confirmed: false,
+      dismissed: false,
+      suggestedLabel: suggested,
     });
   }
 
-  return sessions;
+  return events;
 }

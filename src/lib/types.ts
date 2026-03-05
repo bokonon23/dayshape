@@ -16,11 +16,15 @@ export interface DayData {
   baselineHR: number | null;
 }
 
-export interface SaunaSession {
+export type ActivityType = 'sauna' | 'walk' | 'workout' | 'cold_plunge' | 'other';
+
+export interface DetectedEvent {
+  id: string;
   startTime: Date;
   endTime: Date;
   peakHR: number;
   peakTime: Date;
+  durationMinutes: number;
   recoveryMinutes: number | null;
   recoveryEndTime: Date | null;
   preHRV: number | null;
@@ -29,7 +33,15 @@ export interface SaunaSession {
   activeEnergyKJ: number;
   totalSteps: number;
   hrvChangePercent: number | null;
+  avgStepsPerMinute: number;
+  label: ActivityType | null;
+  confirmed: boolean;
+  dismissed: boolean;
+  suggestedLabel: ActivityType | null;
 }
+
+/** @deprecated Use DetectedEvent instead */
+export type SaunaSession = DetectedEvent;
 
 export interface ChartDataPoint {
   time: number; // minutes since midnight (0-1439)

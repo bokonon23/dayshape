@@ -1,7 +1,15 @@
-import type { SaunaSession } from '../lib/types';
+import type { DetectedEvent } from '../lib/types';
+
+const LABEL_NAMES: Record<string, string> = {
+  sauna: 'Sauna',
+  walk: 'Walk',
+  workout: 'Workout',
+  cold_plunge: 'Cold Plunge',
+  other: 'Activity',
+};
 
 interface SessionCardProps {
-  session: SaunaSession;
+  event: DetectedEvent;
   baselineHR: number;
 }
 
@@ -9,18 +17,20 @@ function formatTime(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export default function SessionCard({ session, baselineHR }: SessionCardProps) {
+export default function SessionCard({ event, baselineHR }: SessionCardProps) {
   const elevPct =
     baselineHR > 0
-      ? Math.round((session.elevationAboveBaseline! / baselineHR) * 100)
+      ? Math.round((event.elevationAboveBaseline! / baselineHR) * 100)
       : null;
 
-  const activeEnergyKcal = Math.round(session.activeEnergyKJ / 4.184);
+  const activeEnergyKcal = Math.round(event.activeEnergyKJ / 4.184);
+  const labelName = LABEL_NAMES[event.label ?? 'other'] ?? 'Activity';
+  const postLabel = labelName.toLowerCase();
 
   return (
     <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
       <h2 className="mb-4 text-sm font-medium tracking-wide text-gray-400 uppercase">
-        Session Summary
+        {labelName} Summary
       </h2>
       <table className="w-full text-sm">
         <tbody className="divide-y divide-gray-800/50">
@@ -30,32 +40,32 @@ export default function SessionCard({ session, baselineHR }: SessionCardProps) {
           />
           <Row
             label="Peak HR (session)"
-            value={`${Math.round(session.peakHR)} bpm`}
+            value={`${Math.round(event.peakHR)} bpm`}
             highlight
           />
           <Row
             label="HR elevation above rest"
-            value={`+${Math.round(session.elevationAboveBaseline!)} bpm${elevPct !== null ? `  (+${elevPct}%)` : ''}`}
+            value={`+${Math.round(event.elevationAboveBaseline!)} bpm${elevPct !== null ? `  (+${elevPct}%)` : ''}`}
           />
           <Row
             label={`Recovery to ${baselineHR + 10} bpm`}
             value={
-              session.recoveryMinutes !== null
-                ? `${session.recoveryMinutes} minutes`
+              event.recoveryMinutes !== null
+                ? `${event.recoveryMinutes} minutes`
                 : 'Not recovered in data'
             }
           />
-          {session.preHRV !== null && (
+          {event.preHRV !== null && (
             <Row
               label="HRV — pre-session"
-              value={`${Math.round(session.preHRV)} ms`}
+              value={`${Math.round(event.preHRV)} ms`}
             />
           )}
-          {session.postHRV !== null && (
+          {event.postHRV !== null && (
             <Row
-              label="HRV — post-sauna"
-              value={`${Math.round(session.postHRV)} ms${session.hrvChangePercent !== null ? `  (${session.hrvChangePercent > 0 ? '\u2191' : '\u2193'}${Math.abs(session.hrvChangePercent)}%)` : ''}`}
-              warn={session.hrvChangePercent !== null && session.hrvChangePercent < 0}
+              label={`HRV — post-${postLabel}`}
+              value={`${Math.round(event.postHRV)} ms${event.hrvChangePercent !== null ? `  (${event.hrvChangePercent > 0 ? '\u2191' : '\u2193'}${Math.abs(event.hrvChangePercent)}%)` : ''}`}
+              warn={event.hrvChangePercent !== null && event.hrvChangePercent < 0}
             />
           )}
           <Row
@@ -64,15 +74,15 @@ export default function SessionCard({ session, baselineHR }: SessionCardProps) {
           />
           <Row
             label="Steps (session window)"
-            value={`${session.totalSteps.toLocaleString()}`}
+            value={`${event.totalSteps.toLocaleString()}`}
           />
           <Row
             label="Session window"
-            value={`${formatTime(session.startTime)} – ${formatTime(session.endTime)}`}
+            value={`${formatTime(event.startTime)} – ${formatTime(event.endTime)}`}
           />
           <Row
             label="Peak time"
-            value={formatTime(session.peakTime)}
+            value={formatTime(event.peakTime)}
           />
         </tbody>
       </table>

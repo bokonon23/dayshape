@@ -5,15 +5,18 @@ import SessionDetail from './components/SessionDetail';
 import HrvChart from './components/HrvChart';
 import DaySelector from './components/DaySelector';
 import SessionCard from './components/SessionCard';
+import EventConfirmation from './components/EventConfirmation';
 import { parseCSV } from './lib/csvParser';
 import { enrichDayData, toChartData } from './lib/hrAnalysis';
-import { detectSaunaSessions } from './lib/saunaDetector';
-import type { DayData } from './lib/types';
+import { detectEvents } from './lib/eventDetector';
+import { saveEvent, mergeWithStored } from './lib/eventStore';
+import type { DayData, DetectedEvent, ActivityType } from './lib/types';
 
 export default function App() {
   const [days, setDays] = useState<DayData[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
+  const [events, setEvents] = useState<DetectedEvent[]>([]);
 
   const handleFileLoaded = useCallback((csvText: string, name: string) => {
     const parsed = parseCSV(csvText);
@@ -21,7 +24,6 @@ export default function App() {
     setDays(enriched);
     setFileName(name);
     if (enriched.length > 0) {
-      // Default to first day (most likely has the actual data)
       setSelectedDate(enriched[0].date);
     }
   }, []);
@@ -36,20 +38,62 @@ export default function App() {
     [currentDay]
   );
 
-  const sessions = useMemo(
-    () =>
-      currentDay
-        ? detectSaunaSessions(currentDay.records, currentDay.baselineHR)
-        : [],
-    [currentDay]
-  );
+  // Detect events and merge with stored labels whenever the selected day changes
+  useMemo(() => {
+    if (!currentDay) {
+      setEvents([]);
+      return;
+    }
+    const detected = detectEvents(currentDay.records, currentDay.baselineHR);
+    const merged = mergeWithStored(detected, currentDay.date);
+    setEvents(merged);
+  }, [currentDay]);
 
   const dates = useMemo(() => days.map((d) => d.date), [days]);
+
+  const visibleEvents = useMemo(
+    () => events.filter((e) => !e.dismissed),
+    [events]
+  );
+  const unconfirmedEvents = useMemo(
+    () => visibleEvents.filter((e) => !e.confirmed),
+    [visibleEvents]
+  );
+  const confirmedEvents = useMemo(
+    () => visibleEvents.filter((e) => e.confirmed),
+    [visibleEvents]
+  );
+
+  const handleConfirm = useCallback((id: string, label: ActivityType) => {
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, label, confirmed: true, dismissed: false } : e
+      )
+    );
+    // Persist to localStorage
+    const event = events.find((e) => e.id === id);
+    if (event) {
+      saveEvent({ ...event, label, confirmed: true, dismissed: false });
+    }
+  }, [events]);
+
+  const handleDismiss = useCallback((id: string) => {
+    setEvents((prev) =>
+      prev.map((e) =>
+        e.id === id ? { ...e, dismissed: true } : e
+      )
+    );
+    const event = events.find((e) => e.id === id);
+    if (event) {
+      saveEvent({ ...event, dismissed: true });
+    }
+  }, [events]);
 
   const handleReset = useCallback(() => {
     setDays([]);
     setSelectedDate('');
     setFileName('');
+    setEvents([]);
   }, []);
 
   return (
@@ -102,9 +146,9 @@ export default function App() {
                     </span>
                   </span>
                   <span>
-                    Sessions detected:{' '}
+                    Events detected:{' '}
                     <span className="font-medium text-orange-400">
-                      {sessions.length}
+                      {visibleEvents.length}
                     </span>
                   </span>
                 </div>
@@ -115,32 +159,47 @@ export default function App() {
             <DayTimeline
               data={chartData}
               baselineHR={currentDay?.baselineHR ?? null}
-              sessions={sessions}
+              events={visibleEvents}
             />
 
-            {/* Per-session detail views */}
-            {sessions.map((session, i) => (
-              <div key={i} className="space-y-6">
-                {/* Session Detail zoomed chart */}
+            {/* Unconfirmed event prompts */}
+            {unconfirmedEvents.length > 0 && (
+              <div className="space-y-4">
+                <h2 className="text-sm font-medium tracking-wide text-gray-400 uppercase">
+                  Events to Review
+                </h2>
+                {unconfirmedEvents.map((event) => (
+                  <EventConfirmation
+                    key={event.id}
+                    event={event}
+                    onConfirm={handleConfirm}
+                    onDismiss={handleDismiss}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Confirmed event detail views */}
+            {confirmedEvents.map((event) => (
+              <div key={event.id} className="space-y-6">
                 {currentDay?.baselineHR != null && (
                   <SessionDetail
                     data={chartData}
-                    session={session}
+                    event={event}
                     baselineHR={currentDay.baselineHR}
                   />
                 )}
 
-                {/* HRV chart + Session Summary side by side */}
                 <div className="grid gap-6 lg:grid-cols-2">
                   {currentDay && (
                     <HrvChart
                       records={currentDay.records}
-                      session={session}
+                      event={event}
                     />
                   )}
                   {currentDay?.baselineHR != null && (
                     <SessionCard
-                      session={session}
+                      event={event}
                       baselineHR={currentDay.baselineHR}
                     />
                   )}
@@ -148,9 +207,9 @@ export default function App() {
               </div>
             ))}
 
-            {sessions.length === 0 && currentDay && (
+            {visibleEvents.length === 0 && currentDay && (
               <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 text-center text-gray-500">
-                No sauna sessions detected for this day.
+                No elevated HR events detected for this day.
               </div>
             )}
           </div>

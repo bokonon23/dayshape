@@ -11,11 +11,19 @@ import {
   ResponsiveContainer,
   Label,
 } from 'recharts';
-import type { ChartDataPoint, SaunaSession } from '../lib/types';
+import type { ChartDataPoint, DetectedEvent } from '../lib/types';
+
+const LABEL_NAMES: Record<string, string> = {
+  sauna: 'Sauna',
+  walk: 'Walk',
+  workout: 'Workout',
+  cold_plunge: 'Cold Plunge',
+  other: 'Activity',
+};
 
 interface SessionDetailProps {
   data: ChartDataPoint[];
-  session: SaunaSession;
+  event: DetectedEvent;
   baselineHR: number;
 }
 
@@ -57,13 +65,14 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 
 export default function SessionDetail({
   data,
-  session,
+  event,
   baselineHR,
 }: SessionDetailProps) {
   const recoveryTarget = baselineHR + 10;
-  const peakMinute = minutesSinceMidnight(session.peakTime);
-  const startMinute = minutesSinceMidnight(session.startTime);
-  const endMinute = minutesSinceMidnight(session.endTime);
+  const peakMinute = minutesSinceMidnight(event.peakTime);
+  const startMinute = minutesSinceMidnight(event.startTime);
+  const endMinute = minutesSinceMidnight(event.endTime);
+  const labelName = LABEL_NAMES[event.label ?? 'other'] ?? 'Activity';
 
   // Zoom window: 60 min before session start to 30 min after session end
   const zoomStart = Math.max(0, startMinute - 60);
@@ -81,7 +90,7 @@ export default function SessionDetail({
 
   const maxHR = Math.max(
     ...zoomedData.filter((d) => d.heartRate !== null).map((d) => d.heartRate!),
-    session.peakHR
+    event.peakHR
   );
   const yMax = Math.ceil((maxHR + 10) / 10) * 10;
 
@@ -89,11 +98,11 @@ export default function SessionDetail({
     <div className="w-full rounded-xl border border-gray-800 bg-gray-900 p-4">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-medium tracking-wide text-gray-400 uppercase">
-          Session Detail — {formatTick(startMinute)} to {formatTick(endMinute)}
+          {labelName} Detail — {formatTick(startMinute)} to {formatTick(endMinute)}
         </h2>
         <div className="flex items-center gap-4 text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
-            <span className="inline-block h-0.5 w-4 bg-orange-500" /> Peak ({Math.round(session.peakHR)} bpm @ {formatTick(peakMinute)})
+            <span className="inline-block h-0.5 w-4 bg-orange-500" /> Peak ({Math.round(event.peakHR)} bpm @ {formatTick(peakMinute)})
           </span>
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-px w-4 border-t border-dotted border-gray-400" /> Recovery threshold ({recoveryTarget} bpm)
@@ -159,22 +168,22 @@ export default function SessionDetail({
             strokeOpacity={0.6}
           >
             <Label
-              value={`Peak: ${Math.round(session.peakHR)} bpm`}
+              value={`Peak: ${Math.round(event.peakHR)} bpm`}
               position="top"
               style={{ fill: '#f97316', fontSize: 11, fontWeight: 600 }}
             />
           </ReferenceLine>
 
           {/* Recovery point annotation */}
-          {session.recoveryEndTime && (
+          {event.recoveryEndTime && (
             <ReferenceLine
-              x={minutesSinceMidnight(session.recoveryEndTime)}
+              x={minutesSinceMidnight(event.recoveryEndTime)}
               stroke="#22c55e"
               strokeDasharray="3 3"
               strokeOpacity={0.5}
             >
               <Label
-                value={`Back to ${recoveryTarget} bpm (${session.recoveryMinutes} min)`}
+                value={`Back to ${recoveryTarget} bpm (${event.recoveryMinutes} min)`}
                 position="insideTopRight"
                 style={{ fill: '#22c55e', fontSize: 10 }}
               />

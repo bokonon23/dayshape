@@ -11,12 +11,12 @@ import {
   ReferenceArea,
   ResponsiveContainer,
 } from 'recharts';
-import type { ChartDataPoint, SaunaSession } from '../lib/types';
+import type { ChartDataPoint, DetectedEvent } from '../lib/types';
 
 interface DayTimelineProps {
   data: ChartDataPoint[];
   baselineHR: number | null;
-  sessions: SaunaSession[];
+  events: DetectedEvent[];
 }
 
 function formatTick(minutes: number): string {
@@ -66,7 +66,7 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 export default function DayTimeline({
   data,
   baselineHR,
-  sessions,
+  events,
 }: DayTimelineProps) {
   const hrvData = data.filter((d) => d.hrv !== null);
 
@@ -96,9 +96,9 @@ export default function DayTimeline({
               <span className="inline-block h-px w-4 border-t border-dashed border-gray-500" /> Baseline
             </span>
           )}
-          {sessions.length > 0 && (
+          {events.length > 0 && (
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-2 w-4 rounded-sm bg-orange-500/30" /> Sauna
+              <span className="inline-block h-2 w-4 rounded-sm bg-orange-500/30" /> Events
             </span>
           )}
         </div>
@@ -151,18 +151,18 @@ export default function DayTimeline({
 
           <Tooltip content={<CustomTooltip />} />
 
-          {/* Sauna session highlight zones */}
-          {sessions.map((s, i) => (
+          {/* Event highlight zones */}
+          {events.map((e) => (
             <ReferenceArea
-              key={i}
+              key={e.id}
               yAxisId="hr"
-              x1={minutesSinceMidnight(s.startTime)}
-              x2={minutesSinceMidnight(s.endTime)}
+              x1={minutesSinceMidnight(e.startTime)}
+              x2={minutesSinceMidnight(e.endTime)}
               y1={40}
               y2={180}
-              fill="#f97316"
-              fillOpacity={0.1}
-              stroke="#f97316"
+              fill={e.confirmed ? '#f97316' : '#6b7280'}
+              fillOpacity={e.confirmed ? 0.1 : 0.08}
+              stroke={e.confirmed ? '#f97316' : '#6b7280'}
               strokeOpacity={0.3}
               strokeDasharray="4 4"
             />
