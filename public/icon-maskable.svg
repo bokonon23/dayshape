@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="100%" style="stop-color:#0f172a"/>
+    </linearGradient>
+    <linearGradient id="pulse" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="50%" style="stop-color:#a78bfa"/>
+      <stop offset="100%" style="stop-color:#6366f1"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background - no rounded corners for maskable -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Subtle glow behind pulse -->
+  <ellipse cx="256" cy="256" rx="160" ry="50" fill="url(#glow)"/>
+  <!-- HR pulse line - pulled inward for safe zone -->
+  <polyline
+    points="76,270 110,270 135,270 155,250 175,290 195,230 215,280 245,190 265,300 285,170 305,250 325,280 345,260 370,270 400,270 436,270"
+    fill="none"
+    stroke="url(#pulse)"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <!-- Small heart accent -->
+  <g transform="translate(256, 155) scale(0.45)">
+    <path d="M0,30 A25,25,0,0,1,50,5 A25,25,0,0,1,100,30 Q100,60,50,90 Q0,60,0,30Z"
+      transform="translate(-50,-45)"
+      fill="#f472b6" opacity="0.8"/>
+  </g>
+  <!-- Text - slightly smaller for safe zone -->
+  <text x="256" y="380" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="46" fill="#e2e8f0" letter-spacing="5">DAYSHAPE</text>
+</svg>

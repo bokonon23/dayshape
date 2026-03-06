@@ -2,8 +2,25 @@
 <html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>DayShape</title>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#1e1b4b" />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- iOS PWA -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DayShape" />
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+
+    <!-- Description for SEO / share cards -->
+    <meta name="description" content="Turn your whole day into a health story. Import Apple Watch data, detect activities, and discover personal insights." />
   </head>
   <body class="bg-gray-950 text-gray-100">
     <div id="root"></div>

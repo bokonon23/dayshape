@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head><title>DayShape Icon Generator</title></head>
+<body style="background:#111; color:#fff; font-family:system-ui; padding:2rem;">
+<h1>DayShape PWA Icon Generator</h1>
+<p>Click each button to download the icon at that size. Save them to <code>dayshape/public/</code></p>
+
+<div id="previews" style="display:flex; gap:2rem; flex-wrap:wrap; margin-top:2rem;"></div>
+
+<script>
+const SVG_SRC = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1e1b4b"/>
+      <stop offset="100%" style="stop-color:#0f172a"/>
+    </linearGradient>
+    <linearGradient id="pulse" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#6366f1"/>
+      <stop offset="50%" style="stop-color:#a78bfa"/>
+      <stop offset="100%" style="stop-color:#6366f1"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#6366f1;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <ellipse cx="256" cy="256" rx="180" ry="60" fill="url(#glow)"/>
+  <polyline
+    points="56,280 100,280 130,280 150,260 170,300 190,240 210,290 240,200 260,310 280,180 300,260 320,290 340,270 370,280 400,280 456,280"
+    fill="none"
+    stroke="url(#pulse)"
+    stroke-width="12"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <g transform="translate(256, 150) scale(0.5)">
+    <path d="M0,30 A25,25,0,0,1,50,5 A25,25,0,0,1,100,30 Q100,60,50,90 Q0,60,0,30Z"
+      transform="translate(-50,-45)"
+      fill="#f472b6" opacity="0.8"/>
+  </g>
+  <text x="256" y="400" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-weight="700" font-size="52" fill="#e2e8f0" letter-spacing="6">DAYSHAPE</text>
+</svg>`;
+
+// Maskable version: no rounded corners, extra padding
+const SVG_MASKABLE = SVG_SRC.replace('rx="96"', 'rx="0"');
+
+const sizes = [
+  { name: 'icon-180.png', size: 180, src: SVG_SRC },
+  { name: 'icon-192.png', size: 192, src: SVG_SRC },
+  { name: 'icon-512.png', size: 512, src: SVG_SRC },
+  { name: 'icon-maskable-512.png', size: 512, src: SVG_MASKABLE },
+];
+
+const container = document.getElementById('previews');
+
+sizes.forEach(({ name, size, src }) => {
+  const div = document.createElement('div');
+  div.style.textAlign = 'center';
+
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  canvas.style.border = '1px solid #333';
+  canvas.style.width = Math.min(size, 256) + 'px';
+  canvas.style.height = Math.min(size, 256) + 'px';
+
+  const btn = document.createElement('button');
+  btn.textContent = `Download ${name} (${size}x${size})`;
+  btn.style.cssText = 'display:block; margin:0.5rem auto; padding:0.5rem 1rem; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px;';
+
+  const img = new Image();
+  const blob = new Blob([src], { type: 'image/svg+xml' });
+  const url = URL.createObjectURL(blob);
+
+  img.onload = () => {
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, size, size);
+    URL.revokeObjectURL(url);
+
+    btn.onclick = () => {
+      canvas.toBlob((pngBlob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(pngBlob);
+        a.download = name;
+        a.click();
+      }, 'image/png');
+    };
+  };
+  img.src = url;
+
+  div.appendChild(canvas);
+  div.appendChild(btn);
+  container.appendChild(div);
+});
+</script>
+</body>
+</html>
