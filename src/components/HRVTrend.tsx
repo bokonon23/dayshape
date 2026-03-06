@@ -76,15 +76,15 @@ export default function HRVTrend({ summaries }: HRVTrendProps) {
               borderRadius: '0.5rem',
               color: '#e5e7eb',
             }}
-            formatter={(value: number, name: string) => {
+            formatter={(value, name) => {
               const labels: Record<string, string> = {
                 avgHRV: 'Avg HRV',
                 minHRV: 'Min HRV',
                 maxHRV: 'Max HRV',
               };
-              return [`${Math.round(value)} ms`, labels[name] ?? name];
+              return [`${Math.round(Number(value))} ms`, labels[String(name)] ?? name];
             }}
-            labelFormatter={(label: string) => `Date: ${label}`}
+            labelFormatter={(label) => `Date: ${label}`}
           />
           <Area
             type="monotone"

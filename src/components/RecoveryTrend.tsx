@@ -91,7 +91,7 @@ export default function RecoveryTrend({ summaries }: RecoveryTrendProps) {
               borderRadius: '0.5rem',
               color: '#e5e7eb',
             }}
-            formatter={(value: number) => [`${value} min`, 'Recovery']}
+            formatter={(value) => [`${value} min`, 'Recovery']}
           />
           <Bar dataKey="recovery" radius={[4, 4, 0, 0]}>
             {events.map((entry, index) => (

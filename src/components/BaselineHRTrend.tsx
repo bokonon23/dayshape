@@ -67,8 +67,8 @@ export default function BaselineHRTrend({ summaries }: BaselineHRTrendProps) {
               borderRadius: '0.5rem',
               color: '#e5e7eb',
             }}
-            formatter={(value: number) => [`${Math.round(value)} bpm`, 'Resting HR']}
-            labelFormatter={(label: string) => `Date: ${label}`}
+            formatter={(value) => [`${Math.round(Number(value))} bpm`, 'Resting HR']}
+            labelFormatter={(label) => `Date: ${label}`}
           />
           <ReferenceLine
             y={Math.round(meanHR)}
