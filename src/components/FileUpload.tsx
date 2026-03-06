@@ -6,6 +6,7 @@ interface FileUploadProps {
 
 export default function FileUpload({ onFileLoaded }: FileUploadProps) {
   const [dragging, setDragging] = useState(false);
+  const [loadingDemo, setLoadingDemo] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
@@ -41,6 +42,7 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
   );
 
   return (
+  <>
     <div
       onDragOver={(e) => {
         e.preventDefault();
@@ -80,5 +82,24 @@ export default function FileUpload({ onFileLoaded }: FileUploadProps) {
         className="hidden"
       />
     </div>
+
+    <button
+      onClick={async (e) => {
+        e.stopPropagation();
+        setLoadingDemo(true);
+        try {
+          const res = await fetch(import.meta.env.BASE_URL + 'sample-data.csv');
+          const text = await res.text();
+          onFileLoaded(text, 'sample-data.csv');
+        } finally {
+          setLoadingDemo(false);
+        }
+      }}
+      disabled={loadingDemo}
+      className="mx-auto mt-4 block rounded-lg bg-gray-800 px-4 py-2 text-sm text-gray-400 hover:bg-gray-700 hover:text-gray-300 disabled:opacity-50"
+    >
+      {loadingDemo ? 'Loading...' : 'or load demo data (22 days)'}
+    </button>
+  </>
   );
 }
