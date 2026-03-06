@@ -6,7 +6,9 @@ import DaySelector from './DaySelector';
 import SessionCard from './SessionCard';
 import EventConfirmation from './EventConfirmation';
 import DayNotes from './DayNotes';
+import SleepSummary from './SleepSummary';
 import { toChartData } from '../lib/hrAnalysis';
+import { findMorningHRV, findMorningHRVForDate, getNextDay } from '../lib/sleepAnalysis';
 import type { DayData, DetectedEvent, ActivityType, DayNotes as DayNotesType } from '../lib/types';
 
 interface DayViewProps {
@@ -53,6 +55,16 @@ export default function DayView({
     [visibleEvents]
   );
 
+  // HRV context for session cards
+  const morningHRV = useMemo(
+    () => (currentDay ? findMorningHRV(currentDay.records) : null),
+    [currentDay]
+  );
+  const nextMorningHRV = useMemo(
+    () => findMorningHRVForDate(days, getNextDay(selectedDate)),
+    [days, selectedDate]
+  );
+
   return (
     <div className="space-y-6">
       {/* Day selector + summary */}
@@ -91,7 +103,13 @@ export default function DayView({
         data={chartData}
         baselineHR={currentDay?.baselineHR ?? null}
         events={visibleEvents}
+        records={currentDay?.records}
       />
+
+      {/* Sleep summary — always shown if data exists */}
+      {currentDay && (
+        <SleepSummary records={currentDay.records} />
+      )}
 
       {/* Day notes */}
       {currentDay && (
@@ -137,6 +155,8 @@ export default function DayView({
               <SessionCard
                 event={event}
                 baselineHR={currentDay.baselineHR}
+                morningHRV={morningHRV}
+                nextMorningHRV={nextMorningHRV}
               />
             )}
           </div>

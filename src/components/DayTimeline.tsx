@@ -11,12 +11,14 @@ import {
   ReferenceArea,
   ResponsiveContainer,
 } from 'recharts';
-import type { ChartDataPoint, DetectedEvent } from '../lib/types';
+import type { ChartDataPoint, DetectedEvent, HealthRecord } from '../lib/types';
+import { extractSleepData, formatHours } from '../lib/sleepAnalysis';
 
 interface DayTimelineProps {
   data: ChartDataPoint[];
   baselineHR: number | null;
   events: DetectedEvent[];
+  records?: HealthRecord[];
 }
 
 function formatTick(minutes: number): string {
@@ -63,10 +65,69 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   );
 }
 
+/**
+ * Estimate a sleep window from HR data.
+ * Sleep typically shows as the longest period of low HR (near or below baseline).
+ * We look for periods where HR is consistently low with very few steps.
+ * Returns start/end as minutes since midnight, or null if no clear sleep detected.
+ */
+function estimateSleepWindow(
+  records: HealthRecord[] | undefined,
+  baselineHR: number | null
+): { start: number; end: number } | null {
+  if (!records || !baselineHR) return null;
+
+  // Find the longest stretch of low HR readings with minimal steps (typically overnight)
+  const threshold = baselineHR + 5;
+  let bestStart = -1;
+  let bestEnd = -1;
+  let bestLen = 0;
+  let runStart = -1;
+  let runLen = 0;
+
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
+    const hr = r.heartRateAvg;
+    const mins = r.timestamp.getHours() * 60 + r.timestamp.getMinutes();
+
+    // Consider a reading as "sleep-like" if: HR below threshold, or no HR (watch may be charging)
+    // and no significant steps
+    const isSleepLike =
+      (hr === null || hr <= threshold) && (r.stepCount === null || r.stepCount < 5);
+
+    if (isSleepLike) {
+      if (runStart === -1) runStart = mins;
+      runLen++;
+    } else {
+      if (runLen > bestLen) {
+        bestStart = runStart;
+        bestEnd = mins;
+        bestLen = runLen;
+      }
+      runStart = -1;
+      runLen = 0;
+    }
+  }
+
+  // Check final run
+  if (runLen > bestLen) {
+    bestStart = runStart;
+    const lastRec = records[records.length - 1];
+    bestEnd = lastRec.timestamp.getHours() * 60 + lastRec.timestamp.getMinutes();
+    bestLen = runLen;
+  }
+
+  // Only show if at least ~2 hours of sleep-like data
+  if (bestLen < 30) return null;
+
+  return { start: bestStart, end: bestEnd };
+}
+
 export default function DayTimeline({
   data,
   baselineHR,
   events,
+  records,
 }: DayTimelineProps) {
   const hrvData = data.filter((d) => d.hrv !== null);
 
@@ -78,13 +139,18 @@ export default function DayTimeline({
 
   const ticks = Array.from({ length: 25 }, (_, i) => i * 60);
 
+  // Sleep data
+  const sleep = records ? extractSleepData(records) : null;
+  const hasSleep = sleep && sleep.total !== null;
+  const sleepWindow = estimateSleepWindow(records, baselineHR);
+
   return (
     <div className="w-full rounded-xl border border-gray-800 bg-gray-900 p-4">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-sm font-medium tracking-wide text-gray-400 uppercase">
           Heart Rate — Full Day
         </h2>
-        <div className="flex items-center gap-4 text-xs text-gray-500">
+        <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
             <span className="inline-block h-2 w-4 rounded-sm bg-red-500/40" /> HR
           </span>
@@ -99,6 +165,11 @@ export default function DayTimeline({
           {events.length > 0 && (
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-2 w-4 rounded-sm bg-orange-500/30" /> Events
+            </span>
+          )}
+          {hasSleep && (
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-2 w-4 rounded-sm bg-indigo-500/30" /> Sleep
             </span>
           )}
         </div>
@@ -150,6 +221,27 @@ export default function DayTimeline({
           />
 
           <Tooltip content={<CustomTooltip />} />
+
+          {/* Sleep band — shown at bottom of chart as a coloured zone */}
+          {hasSleep && sleepWindow && (
+            <ReferenceArea
+              yAxisId="hr"
+              x1={sleepWindow.start}
+              x2={sleepWindow.end}
+              y1={40}
+              y2={70}
+              fill="#6366f1"
+              fillOpacity={0.15}
+              stroke="#6366f1"
+              strokeOpacity={0.25}
+              strokeDasharray="4 4"
+              label={{
+                value: `Sleep ${formatHours(sleep!.total)}`,
+                position: 'insideLeft',
+                style: { fill: '#818cf8', fontSize: 10, fontWeight: 500 },
+              }}
+            />
+          )}
 
           {/* Event highlight zones */}
           {events.map((e) => (
