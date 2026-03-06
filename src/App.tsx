@@ -1,22 +1,29 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
-import DayTimeline from './components/DayTimeline';
-import SessionDetail from './components/SessionDetail';
-import HrvChart from './components/HrvChart';
-import DaySelector from './components/DaySelector';
-import SessionCard from './components/SessionCard';
-import EventConfirmation from './components/EventConfirmation';
+import DayView from './components/DayView';
+import TrendsView from './components/TrendsView';
+import ViewToggle from './components/ViewToggle';
 import { parseCSV } from './lib/csvParser';
-import { enrichDayData, toChartData } from './lib/hrAnalysis';
+import { enrichDayData } from './lib/hrAnalysis';
 import { detectEvents } from './lib/eventDetector';
 import { saveEvent, mergeWithStored } from './lib/eventStore';
-import type { DayData, DetectedEvent, ActivityType } from './lib/types';
+import { computeDaySummary } from './lib/summaryComputer';
+import { saveSummaries, loadAllSummaries } from './lib/summaryStore';
+import { loadNotes } from './lib/notesStore';
+import type { DayData, DetectedEvent, ActivityType, DaySummary, DayNotes } from './lib/types';
 
 export default function App() {
   const [days, setDays] = useState<DayData[]>([]);
   const [selectedDate, setSelectedDate] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
   const [events, setEvents] = useState<DetectedEvent[]>([]);
+  const [view, setView] = useState<'day' | 'trends'>('day');
+  const [summaries, setSummaries] = useState<DaySummary[]>([]);
+
+  // Load stored summaries on mount
+  useEffect(() => {
+    setSummaries(loadAllSummaries());
+  }, []);
 
   const handleFileLoaded = useCallback((csvText: string, name: string) => {
     const parsed = parseCSV(csvText);
@@ -26,16 +33,21 @@ export default function App() {
     if (enriched.length > 0) {
       setSelectedDate(enriched[0].date);
     }
+
+    // Compute and persist summaries for all days in the upload
+    const newSummaries = enriched.map((day) => {
+      const detected = detectEvents(day.records, day.baselineHR);
+      const merged = mergeWithStored(detected, day.date);
+      const notes = loadNotes(day.date);
+      return computeDaySummary(day, merged, notes);
+    });
+    saveSummaries(newSummaries);
+    setSummaries(loadAllSummaries());
   }, []);
 
   const currentDay = useMemo(
     () => days.find((d) => d.date === selectedDate) ?? null,
     [days, selectedDate]
-  );
-
-  const chartData = useMemo(
-    () => (currentDay ? toChartData(currentDay.records) : []),
-    [currentDay]
   );
 
   // Detect events and merge with stored labels whenever the selected day changes
@@ -49,45 +61,59 @@ export default function App() {
     setEvents(merged);
   }, [currentDay]);
 
-  const dates = useMemo(() => days.map((d) => d.date), [days]);
-
-  const visibleEvents = useMemo(
-    () => events.filter((e) => !e.dismissed),
-    [events]
-  );
-  const unconfirmedEvents = useMemo(
-    () => visibleEvents.filter((e) => !e.confirmed),
-    [visibleEvents]
-  );
-  const confirmedEvents = useMemo(
-    () => visibleEvents.filter((e) => e.confirmed),
-    [visibleEvents]
-  );
-
   const handleConfirm = useCallback((id: string, label: ActivityType) => {
-    setEvents((prev) =>
-      prev.map((e) =>
+    setEvents((prev) => {
+      const updated = prev.map((e) =>
         e.id === id ? { ...e, label, confirmed: true, dismissed: false } : e
-      )
-    );
-    // Persist to localStorage
-    const event = events.find((e) => e.id === id);
-    if (event) {
-      saveEvent({ ...event, label, confirmed: true, dismissed: false });
-    }
-  }, [events]);
+      );
+      // Persist event label
+      const event = updated.find((e) => e.id === id);
+      if (event) saveEvent(event);
+      // Update summary for this day
+      if (currentDay) {
+        const notes = loadNotes(currentDay.date);
+        const summary = computeDaySummary(currentDay, updated, notes);
+        saveSummaries([summary]);
+        setSummaries(loadAllSummaries());
+      }
+      return updated;
+    });
+  }, [currentDay]);
 
   const handleDismiss = useCallback((id: string) => {
-    setEvents((prev) =>
-      prev.map((e) =>
+    setEvents((prev) => {
+      const updated = prev.map((e) =>
         e.id === id ? { ...e, dismissed: true } : e
-      )
-    );
-    const event = events.find((e) => e.id === id);
-    if (event) {
-      saveEvent({ ...event, dismissed: true });
-    }
-  }, [events]);
+      );
+      const event = updated.find((e) => e.id === id);
+      if (event) saveEvent(event);
+      return updated;
+    });
+  }, []);
+
+  const handleNotesChange = useCallback(
+    (notes: DayNotes) => {
+      // Re-compute summary for the day with updated notes
+      if (currentDay) {
+        const summary = computeDaySummary(currentDay, events, notes);
+        saveSummaries([summary]);
+        setSummaries(loadAllSummaries());
+      }
+    },
+    [currentDay, events]
+  );
+
+  const handleNavigateToDay = useCallback(
+    (date: string) => {
+      // If the day is loaded, switch to it
+      const dayExists = days.find((d) => d.date === date);
+      if (dayExists) {
+        setSelectedDate(date);
+        setView('day');
+      }
+    },
+    [days]
+  );
 
   const handleReset = useCallback(() => {
     setDays([]);
@@ -101,9 +127,14 @@ export default function App() {
       {/* Header */}
       <header className="border-b border-gray-800 px-6 py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <h1 className="text-xl font-bold tracking-tight">
-            Day<span className="text-orange-400">Shape</span>
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-xl font-bold tracking-tight">
+              Day<span className="text-orange-400">Shape</span>
+            </h1>
+            {days.length > 0 && (
+              <ViewToggle view={view} onViewChange={setView} />
+            )}
+          </div>
           {days.length > 0 && (
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-500">{fileName}</span>
@@ -122,97 +153,21 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-6 py-6">
         {days.length === 0 ? (
           <FileUpload onFileLoaded={handleFileLoaded} />
+        ) : view === 'day' ? (
+          <DayView
+            days={days}
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            events={events}
+            onConfirm={handleConfirm}
+            onDismiss={handleDismiss}
+            onNotesChange={handleNotesChange}
+          />
         ) : (
-          <div className="space-y-6">
-            {/* Day selector + summary */}
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <DaySelector
-                dates={dates}
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-              />
-              {currentDay && (
-                <div className="flex gap-6 text-sm text-gray-500">
-                  <span>
-                    Baseline HR:{' '}
-                    <span className="font-medium text-gray-300">
-                      {currentDay.baselineHR ?? '—'} bpm
-                    </span>
-                  </span>
-                  <span>
-                    HR readings:{' '}
-                    <span className="font-medium text-gray-300">
-                      {currentDay.records.filter((r) => r.heartRateAvg !== null).length}
-                    </span>
-                  </span>
-                  <span>
-                    Events detected:{' '}
-                    <span className="font-medium text-orange-400">
-                      {visibleEvents.length}
-                    </span>
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Full day HR timeline */}
-            <DayTimeline
-              data={chartData}
-              baselineHR={currentDay?.baselineHR ?? null}
-              events={visibleEvents}
-            />
-
-            {/* Unconfirmed event prompts */}
-            {unconfirmedEvents.length > 0 && (
-              <div className="space-y-4">
-                <h2 className="text-sm font-medium tracking-wide text-gray-400 uppercase">
-                  Events to Review
-                </h2>
-                {unconfirmedEvents.map((event) => (
-                  <EventConfirmation
-                    key={event.id}
-                    event={event}
-                    onConfirm={handleConfirm}
-                    onDismiss={handleDismiss}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Confirmed event detail views */}
-            {confirmedEvents.map((event) => (
-              <div key={event.id} className="space-y-6">
-                {currentDay?.baselineHR != null && (
-                  <SessionDetail
-                    data={chartData}
-                    event={event}
-                    baselineHR={currentDay.baselineHR}
-                  />
-                )}
-
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {currentDay && (
-                    <HrvChart
-                      records={currentDay.records}
-                      event={event}
-                    />
-                  )}
-                  {currentDay?.baselineHR != null && (
-                    <SessionCard
-                      event={event}
-                      baselineHR={currentDay.baselineHR}
-                    />
-                  )}
-                </div>
-              </div>
-            ))}
-
-            {visibleEvents.length === 0 && currentDay && (
-              <div className="rounded-xl border border-gray-800 bg-gray-900 p-6 text-center text-gray-500">
-                No elevated HR events detected for this day.
-              </div>
-            )}
-          </div>
+          <TrendsView
+            summaries={summaries}
+            onNavigateToDay={handleNavigateToDay}
+          />
         )}
       </main>
     </div>

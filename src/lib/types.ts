@@ -8,6 +8,14 @@ export interface HealthRecord {
   activeEnergy: number | null;
   restingHeartRate: number | null;
   respiratoryRate: number | null;
+  sleepTotal: number | null;
+  sleepAsleep: number | null;
+  sleepCore: number | null;
+  sleepDeep: number | null;
+  sleepREM: number | null;
+  sleepAwake: number | null;
+  bloodOxygen: number | null;
+  walkingDistance: number | null;
 }
 
 export interface DayData {
@@ -48,4 +56,46 @@ export interface ChartDataPoint {
   timeLabel: string; // "HH:MM"
   heartRate: number | null;
   hrv: number | null;
+}
+
+export interface DayNotes {
+  date: string;
+  pain: number | null;
+  stress: number | null;
+  notes: string;
+}
+
+export interface ConfirmedEventSummary {
+  label: ActivityType;
+  startTime: string;
+  peakHR: number;
+  durationMinutes: number;
+  recoveryMinutes: number | null;
+  preHRV: number | null;
+  postHRV: number | null;
+  hrvChangePercent: number | null;
+}
+
+export interface DaySummary {
+  date: string;
+  baselineHR: number | null;
+  avgHRV: number | null;
+  minHRV: number | null;
+  maxHRV: number | null;
+  totalSteps: number;
+  totalActiveEnergyKJ: number;
+  totalDistance: number | null;
+  sleepTotal: number | null;
+  sleepDeep: number | null;
+  sleepREM: number | null;
+  events: ConfirmedEventSummary[];
+  notes: DayNotes | null;
+}
+
+export interface Insight {
+  id: string;
+  type: 'positive' | 'warning' | 'neutral';
+  title: string;
+  description: string;
+  metric?: string;
 }

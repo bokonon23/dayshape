@@ -11,6 +11,14 @@ const COLUMN_MAP = {
   activeEnergy: 'Active Energy (kJ)',
   restingHeartRate: 'Resting Heart Rate (count/min)',
   respiratoryRate: 'Respiratory Rate (count/min)',
+  sleepTotal: 'Sleep Analysis [Total] (hr)',
+  sleepAsleep: 'Sleep Analysis [Asleep] (hr)',
+  sleepCore: 'Sleep Analysis [Core] (hr)',
+  sleepDeep: 'Sleep Analysis [Deep] (hr)',
+  sleepREM: 'Sleep Analysis [REM] (hr)',
+  sleepAwake: 'Sleep Analysis [Awake] (hr)',
+  bloodOxygen: 'Blood Oxygen Saturation (%)',
+  walkingDistance: 'Walking + Running Distance (km)',
 } as const;
 
 function parseDateTime(raw: string): Date | null {
@@ -65,6 +73,14 @@ export function parseCSV(csvText: string): DayData[] {
       activeEnergy: parseNum(row[COLUMN_MAP.activeEnergy]),
       restingHeartRate: parseNum(row[COLUMN_MAP.restingHeartRate]),
       respiratoryRate: parseNum(row[COLUMN_MAP.respiratoryRate]),
+      sleepTotal: parseNum(row[COLUMN_MAP.sleepTotal]),
+      sleepAsleep: parseNum(row[COLUMN_MAP.sleepAsleep]),
+      sleepCore: parseNum(row[COLUMN_MAP.sleepCore]),
+      sleepDeep: parseNum(row[COLUMN_MAP.sleepDeep]),
+      sleepREM: parseNum(row[COLUMN_MAP.sleepREM]),
+      sleepAwake: parseNum(row[COLUMN_MAP.sleepAwake]),
+      bloodOxygen: parseNum(row[COLUMN_MAP.bloodOxygen]),
+      walkingDistance: parseNum(row[COLUMN_MAP.walkingDistance]),
     };
 
     const key = toDateKey(timestamp);
