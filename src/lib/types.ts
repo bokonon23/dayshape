@@ -74,6 +74,11 @@ export interface ConfirmedEventSummary {
   preHRV: number | null;
   postHRV: number | null;
   hrvChangePercent: number | null;
+  morningHRV: number | null;
+  nextMorningHRV: number | null;
+  elevationAboveBaseline: number | null;
+  totalSteps: number;
+  walkingDistance: number | null;
 }
 
 export interface DaySummary {

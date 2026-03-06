@@ -22,7 +22,7 @@ const LABEL_COLORS: Record<string, string> = {
   other: 'text-gray-400',
 };
 
-type SortKey = 'date' | 'label' | 'peakHR' | 'duration' | 'recovery' | 'hrvChange';
+type SortKey = 'date' | 'label' | 'peakHR' | 'elevation' | 'duration' | 'recovery' | 'morningHRV' | 'postHRV' | 'nextMorningHRV';
 
 export default function SessionHistoryTable({
   summaries,
@@ -36,9 +36,12 @@ export default function SessionHistoryTable({
       date: s.date,
       label: e.label,
       peakHR: e.peakHR,
+      elevation: e.elevationAboveBaseline,
       duration: e.durationMinutes,
       recovery: e.recoveryMinutes,
-      hrvChange: e.hrvChangePercent,
+      morningHRV: e.morningHRV,
+      postHRV: e.postHRV,
+      nextMorningHRV: e.nextMorningHRV,
       startTime: e.startTime,
     }))
   );
@@ -66,14 +69,23 @@ export default function SessionHistoryTable({
       case 'peakHR':
         cmp = a.peakHR - b.peakHR;
         break;
+      case 'elevation':
+        cmp = (a.elevation ?? 0) - (b.elevation ?? 0);
+        break;
       case 'duration':
         cmp = a.duration - b.duration;
         break;
       case 'recovery':
         cmp = (a.recovery ?? 999) - (b.recovery ?? 999);
         break;
-      case 'hrvChange':
-        cmp = (a.hrvChange ?? 0) - (b.hrvChange ?? 0);
+      case 'morningHRV':
+        cmp = (a.morningHRV ?? 0) - (b.morningHRV ?? 0);
+        break;
+      case 'postHRV':
+        cmp = (a.postHRV ?? 0) - (b.postHRV ?? 0);
+        break;
+      case 'nextMorningHRV':
+        cmp = (a.nextMorningHRV ?? 0) - (b.nextMorningHRV ?? 0);
         break;
     }
     return sortAsc ? cmp : -cmp;
@@ -90,7 +102,7 @@ export default function SessionHistoryTable({
 
   const SortHeader = ({ k, children }: { k: SortKey; children: React.ReactNode }) => (
     <th
-      className="cursor-pointer px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide hover:text-gray-300"
+      className="cursor-pointer px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wide hover:text-gray-300 whitespace-nowrap"
       onClick={() => handleSort(k)}
     >
       {children}
@@ -112,9 +124,11 @@ export default function SessionHistoryTable({
               <SortHeader k="date">Date</SortHeader>
               <SortHeader k="label">Activity</SortHeader>
               <SortHeader k="peakHR">Peak HR</SortHeader>
-              <SortHeader k="duration">Duration</SortHeader>
+              <SortHeader k="elevation">HR Elev.</SortHeader>
               <SortHeader k="recovery">Recovery</SortHeader>
-              <SortHeader k="hrvChange">HRV Change</SortHeader>
+              <SortHeader k="morningHRV">Morning HRV</SortHeader>
+              <SortHeader k="postHRV">Post HRV</SortHeader>
+              <SortHeader k="nextMorningHRV">Next-day HRV</SortHeader>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-800/50">
@@ -129,24 +143,32 @@ export default function SessionHistoryTable({
                   {LABEL_NAMES[row.label] ?? row.label}
                 </td>
                 <td className="px-3 py-2 text-gray-300">{Math.round(row.peakHR)} bpm</td>
-                <td className="px-3 py-2 text-gray-300">{row.duration} min</td>
+                <td className="px-3 py-2 text-gray-300">
+                  {row.elevation !== null ? `+${Math.round(row.elevation)}` : '\u2014'}
+                </td>
                 <td className="px-3 py-2 text-gray-300">
                   {row.recovery !== null ? `${row.recovery} min` : '\u2014'}
                 </td>
-                <td
-                  className={`px-3 py-2 font-medium ${
-                    row.hrvChange !== null
-                      ? row.hrvChange > 0
-                        ? 'text-green-400'
-                        : row.hrvChange < 0
-                          ? 'text-yellow-400'
-                          : 'text-gray-400'
-                      : 'text-gray-600'
-                  }`}
-                >
-                  {row.hrvChange !== null
-                    ? `${row.hrvChange > 0 ? '+' : ''}${row.hrvChange}%`
-                    : '\u2014'}
+                <td className="px-3 py-2 text-gray-300">
+                  {row.morningHRV !== null ? `${Math.round(row.morningHRV)} ms` : '\u2014'}
+                </td>
+                <td className={`px-3 py-2 font-medium ${
+                  row.morningHRV !== null && row.postHRV !== null
+                    ? row.postHRV < row.morningHRV
+                      ? 'text-yellow-400'
+                      : 'text-gray-300'
+                    : 'text-gray-600'
+                }`}>
+                  {row.postHRV !== null ? `${Math.round(row.postHRV)} ms` : '\u2014'}
+                </td>
+                <td className={`px-3 py-2 font-medium ${
+                  row.morningHRV !== null && row.nextMorningHRV !== null
+                    ? row.nextMorningHRV > row.morningHRV
+                      ? 'text-emerald-400'
+                      : 'text-yellow-400'
+                    : 'text-gray-600'
+                }`}>
+                  {row.nextMorningHRV !== null ? `${Math.round(row.nextMorningHRV)} ms` : '\u2014'}
                 </td>
               </tr>
             ))}

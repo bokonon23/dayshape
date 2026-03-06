@@ -39,7 +39,7 @@ export default function App() {
       const detected = detectEvents(day.records, day.baselineHR);
       const merged = mergeWithStored(detected, day.date);
       const notes = loadNotes(day.date);
-      return computeDaySummary(day, merged, notes);
+      return computeDaySummary(day, merged, notes, enriched);
     });
     saveSummaries(newSummaries);
     setSummaries(loadAllSummaries());
@@ -72,13 +72,13 @@ export default function App() {
       // Update summary for this day
       if (currentDay) {
         const notes = loadNotes(currentDay.date);
-        const summary = computeDaySummary(currentDay, updated, notes);
+        const summary = computeDaySummary(currentDay, updated, notes, days);
         saveSummaries([summary]);
         setSummaries(loadAllSummaries());
       }
       return updated;
     });
-  }, [currentDay]);
+  }, [currentDay, days]);
 
   const handleDismiss = useCallback((id: string) => {
     setEvents((prev) => {
@@ -95,7 +95,7 @@ export default function App() {
     (notes: DayNotes) => {
       // Re-compute summary for the day with updated notes
       if (currentDay) {
-        const summary = computeDaySummary(currentDay, events, notes);
+        const summary = computeDaySummary(currentDay, events, notes, days);
         saveSummaries([summary]);
         setSummaries(loadAllSummaries());
       }
