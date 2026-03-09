@@ -22,17 +22,27 @@ const COLUMN_MAP = {
 } as const;
 
 function parseDateTime(raw: string): Date | null {
-  // Format: DD/MM/YYYY HH:MM
-  const match = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
-  if (!match) return null;
-  const [, day, month, year, hours, minutes] = match;
-  return new Date(
-    parseInt(year),
-    parseInt(month) - 1,
-    parseInt(day),
-    parseInt(hours),
-    parseInt(minutes)
-  );
+  // Format 1: DD/MM/YYYY HH:MM (Health Auto Export older/regional)
+  const slashMatch = raw.match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/);
+  if (slashMatch) {
+    const [, day, month, year, hours, minutes] = slashMatch;
+    return new Date(
+      parseInt(year), parseInt(month) - 1, parseInt(day),
+      parseInt(hours), parseInt(minutes)
+    );
+  }
+
+  // Format 2: YYYY-MM-DD HH:MM:SS (Health Auto Export ISO format)
+  const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (isoMatch) {
+    const [, year, month, day, hours, minutes] = isoMatch;
+    return new Date(
+      parseInt(year), parseInt(month) - 1, parseInt(day),
+      parseInt(hours), parseInt(minutes)
+    );
+  }
+
+  return null;
 }
 
 function parseNum(val: string | undefined | null): number | null {
