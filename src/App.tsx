@@ -19,6 +19,7 @@ export default function App() {
   const [events, setEvents] = useState<DetectedEvent[]>([]);
   const [view, setView] = useState<'day' | 'trends'>('day');
   const [summaries, setSummaries] = useState<DaySummary[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Load stored summaries on mount
   useEffect(() => {
@@ -26,23 +27,32 @@ export default function App() {
   }, []);
 
   const handleFileLoaded = useCallback((csvText: string, name: string) => {
-    const parsed = parseCSV(csvText);
-    const enriched = parsed.map(enrichDayData);
-    setDays(enriched);
+    setLoading(true);
     setFileName(name);
-    if (enriched.length > 0) {
-      setSelectedDate(enriched[0].date);
-    }
 
-    // Compute and persist summaries for all days in the upload
-    const newSummaries = enriched.map((day) => {
-      const detected = detectEvents(day.records, day.baselineHR);
-      const merged = mergeWithStored(detected, day.date);
-      const notes = loadNotes(day.date);
-      return computeDaySummary(day, merged, notes, enriched);
-    });
-    saveSummaries(newSummaries);
-    setSummaries(loadAllSummaries());
+    // Defer heavy work so the loading spinner renders first
+    setTimeout(() => {
+      try {
+        const parsed = parseCSV(csvText);
+        const enriched = parsed.map(enrichDayData);
+        setDays(enriched);
+        if (enriched.length > 0) {
+          setSelectedDate(enriched[0].date);
+        }
+
+        // Compute and persist summaries for all days in the upload
+        const newSummaries = enriched.map((day) => {
+          const detected = detectEvents(day.records, day.baselineHR);
+          const merged = mergeWithStored(detected, day.date);
+          const notes = loadNotes(day.date);
+          return computeDaySummary(day, merged, notes, enriched);
+        });
+        saveSummaries(newSummaries);
+        setSummaries(loadAllSummaries());
+      } finally {
+        setLoading(false);
+      }
+    }, 50);
   }, []);
 
   const currentDay = useMemo(
@@ -151,7 +161,12 @@ export default function App() {
 
       {/* Main content */}
       <main className="mx-auto max-w-6xl px-6 py-6">
-        {days.length === 0 ? (
+        {loading ? (
+          <div className="mt-32 flex flex-col items-center gap-4">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-600 border-t-orange-400" />
+            <p className="text-sm text-gray-400">Processing {fileName}...</p>
+          </div>
+        ) : days.length === 0 ? (
           <FileUpload onFileLoaded={handleFileLoaded} />
         ) : view === 'day' ? (
           <DayView
