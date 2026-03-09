@@ -10,6 +10,7 @@ const LABEL_NAMES: Record<string, string> = {
   sauna: 'Sauna',
   walk: 'Walk',
   workout: 'Workout',
+  swim: 'Swim',
   cold_plunge: 'Cold Plunge',
   other: 'Other',
 };
@@ -18,6 +19,7 @@ const LABEL_COLORS: Record<string, string> = {
   sauna: 'text-orange-400',
   walk: 'text-green-400',
   workout: 'text-blue-400',
+  swim: 'text-sky-400',
   cold_plunge: 'text-cyan-400',
   other: 'text-gray-400',
 };

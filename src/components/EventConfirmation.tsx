@@ -14,6 +14,7 @@ const ACTIVITY_OPTIONS: { label: string; value: ActivityType; color: string }[] 
   { label: 'Sauna', value: 'sauna', color: 'bg-orange-600 hover:bg-orange-500' },
   { label: 'Walk', value: 'walk', color: 'bg-green-600 hover:bg-green-500' },
   { label: 'Workout', value: 'workout', color: 'bg-blue-600 hover:bg-blue-500' },
+  { label: 'Swim', value: 'swim', color: 'bg-sky-600 hover:bg-sky-500' },
   { label: 'Cold Plunge', value: 'cold_plunge', color: 'bg-cyan-600 hover:bg-cyan-500' },
   { label: 'Other', value: 'other', color: 'bg-gray-600 hover:bg-gray-500' },
 ];
@@ -41,7 +42,12 @@ export default function EventConfirmation({
           <span className="font-semibold text-gray-100">
             {Math.round(event.peakHR)} bpm
           </span>
-          {event.avgStepsPerMinute > 0 && (
+          {event.totalSwimmingDistance > 0 && (
+            <>
+              , {event.totalSwimmingDistance}m swim
+            </>
+          )}
+          {event.avgStepsPerMinute > 0 && event.totalSwimmingDistance === 0 && (
             <>
               , ~{event.avgStepsPerMinute} steps/min
             </>

@@ -9,10 +9,10 @@ interface ElevatedWindow {
 }
 
 // === High-intensity event thresholds (sauna, workout, cold plunge) ===
-const ELEVATION_MULTIPLIER = 1.5;     // HR must exceed baseline * this to flag as elevated
-const PEAK_MULTIPLIER = 1.9;          // peak must reach baseline * this to qualify as event
-const GAP_TOLERANCE_MINUTES = 20;     // max gap between elevated readings to merge (sparse data)
-const MIN_DURATION_MINUTES = 3;       // minimum duration of elevated HR
+const ELEVATION_MULTIPLIER = 1.6;     // HR must exceed baseline * this to flag as elevated
+const PEAK_MULTIPLIER = 2.0;          // peak must reach baseline * this to qualify as event
+const GAP_TOLERANCE_MINUTES = 10;     // max gap between elevated readings to merge (sparse data)
+const MIN_DURATION_MINUTES = 8;       // minimum duration of elevated HR (real sessions ≥ 8 min)
 const RAMP_WINDOW_MINUTES = 10;       // look back for ramp-up before first spike
 
 // === Walk detection thresholds ===
@@ -34,14 +34,26 @@ function suggestLabel(
   avgStepsPerMinute: number,
   peakHR: number,
   baselineHR: number,
-  durationMinutes: number
+  durationMinutes: number,
+  totalSwimmingDistance: number
 ): ActivityType {
+  // High step rate → walk or running workout
   if (avgStepsPerMinute > 80) {
     return peakHR > baselineHR * 2.5 ? 'workout' : 'walk';
   }
+  // Very short → cold plunge
   if (durationMinutes < 5) {
     return 'cold_plunge';
   }
+  // Swimming data present → swim
+  if (totalSwimmingDistance > 0) {
+    return 'swim';
+  }
+  // Moderate steps (>10/min) → likely gym workout (treadmill, bike, weights)
+  if (avgStepsPerMinute > 10) {
+    return 'workout';
+  }
+  // Near-zero steps, no swim → sauna
   return 'sauna';
 }
 
@@ -154,10 +166,14 @@ function detectHighIntensityEvents(
 
     let totalSteps = 0;
     let stepReadings = 0;
+    let totalSwimDist = 0;
     for (let i = w.startIdx; i <= w.endIdx; i++) {
       if (records[i].stepCount !== null) {
         totalSteps += records[i].stepCount!;
         stepReadings++;
+      }
+      if (records[i].swimmingDistance !== null) {
+        totalSwimDist += records[i].swimmingDistance!;
       }
     }
     const avgStepsPerMinute =
@@ -204,7 +220,7 @@ function detectHighIntensityEvents(
         ? Math.round(((postHRV - preHRV) / preHRV) * 100)
         : null;
 
-    const suggested = suggestLabel(avgStepsPerMinute, w.peakHR, baselineHR, durationMinutes);
+    const suggested = suggestLabel(avgStepsPerMinute, w.peakHR, baselineHR, durationMinutes, totalSwimDist);
 
     events.push({
       id: formatDateId(records[expandedStartIdx].timestamp),
@@ -222,6 +238,7 @@ function detectHighIntensityEvents(
       totalSteps: Math.round(sessionSteps),
       hrvChangePercent,
       avgStepsPerMinute: Math.round(avgStepsPerMinute),
+      totalSwimmingDistance: Math.round(totalSwimDist),
       label: null,
       confirmed: false,
       dismissed: false,
@@ -338,6 +355,7 @@ function detectWalkEvents(
       totalSteps: Math.round(totalSteps),
       hrvChangePercent,
       avgStepsPerMinute: Math.round(avgStepsPerMinute),
+      totalSwimmingDistance: 0,
       label: null,
       confirmed: false,
       dismissed: false,

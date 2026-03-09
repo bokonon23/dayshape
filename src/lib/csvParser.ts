@@ -19,6 +19,8 @@ const COLUMN_MAP = {
   sleepAwake: 'Sleep Analysis [Awake] (hr)',
   bloodOxygen: 'Blood Oxygen Saturation (%)',
   walkingDistance: 'Walking + Running Distance (km)',
+  swimmingDistance: 'Swimming Distance (m)',
+  swimmingStrokeCount: 'Swimming Stroke Count (count)',
 } as const;
 
 function parseDateTime(raw: string): Date | null {
@@ -91,6 +93,8 @@ export function parseCSV(csvText: string): DayData[] {
       sleepAwake: parseNum(row[COLUMN_MAP.sleepAwake]),
       bloodOxygen: parseNum(row[COLUMN_MAP.bloodOxygen]),
       walkingDistance: parseNum(row[COLUMN_MAP.walkingDistance]),
+      swimmingDistance: parseNum(row[COLUMN_MAP.swimmingDistance]),
+      swimmingStrokeCount: parseNum(row[COLUMN_MAP.swimmingStrokeCount]),
     };
 
     const key = toDateKey(timestamp);

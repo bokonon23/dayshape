@@ -9,6 +9,7 @@
  * - Sleep data: every night, realistic stage distributions
  * - Step data: scattered throughout waking hours
  * - Walking distance during walks
+ * - Swim sessions: 1x/week, HR 100-130, 25-45 min, with swim distance/strokes
  *
  * Output: CSV matching Health Auto Export format
  *
@@ -56,10 +57,12 @@ interface MinuteRecord {
   sleepAwake: number | null;
   bloodOxygen: number | null;
   walkingDistance: number | null;
+  swimmingDistance: number | null;
+  swimmingStrokeCount: number | null;
 }
 
 interface ScheduledEvent {
-  type: 'sauna' | 'walk' | 'workout';
+  type: 'sauna' | 'walk' | 'workout' | 'swim';
   startMinute: number; // minute of day (0-1439)
   durationMinutes: number;
 }
@@ -139,6 +142,25 @@ function scheduleEvents(dayIndex: number, dayOfWeek: number): ScheduledEvent[] {
       startMinute: walkStart,
       durationMinutes: randInt(20, 45),
     });
+  }
+
+  // Swim: ~1x/week, typically Sat or Wed morning
+  const swimDays = [3, 6]; // Wed, Sat
+  if (swimDays.includes(dayOfWeek) && rand() > 0.5) {
+    const swimStart = randInt(8, 10) * 60 + randInt(0, 20);
+    // Make sure doesn't overlap with existing events
+    const overlaps = events.some(
+      (e) =>
+        swimStart < e.startMinute + e.durationMinutes + 30 &&
+        swimStart + 45 > e.startMinute - 30
+    );
+    if (!overlaps) {
+      events.push({
+        type: 'swim',
+        startMinute: swimStart,
+        durationMinutes: randInt(25, 45),
+      });
+    }
   }
 
   // Occasional afternoon walk on any day
@@ -237,14 +259,32 @@ function walkHR(minuteIntoSession: number, duration: number): number {
   }
 }
 
+function swimHR(minuteIntoSession: number, duration: number): number {
+  // Swimming: moderate-high HR, interval-like pattern (laps + rest)
+  const t = minuteIntoSession / duration;
+  const baseSwimHR = BASELINE_HR + 35;
+  if (t < 0.08) {
+    // Getting in, warm-up
+    return BASELINE_HR + 10 + (t / 0.08) * 25;
+  } else if (t > 0.92) {
+    // Cool-down, getting out
+    const coolT = (t - 0.92) / 0.08;
+    return baseSwimHR - coolT * 20 + randFloat(-3, 3);
+  } else {
+    // Lap swimming: fluctuates between effort and rest at wall
+    const lapPhase = Math.sin(minuteIntoSession * 0.8) * 0.5 + 0.5;
+    return baseSwimHR + lapPhase * 20 + randFloat(-5, 5);
+  }
+}
+
 // ─── Recovery HR after events ────────────────────────────────────────────────
 
 function recoveryHR(
   minutesAfterEvent: number,
   peakHR: number,
-  eventType: 'sauna' | 'walk' | 'workout'
+  eventType: 'sauna' | 'walk' | 'workout' | 'swim'
 ): number | null {
-  const recoveryDuration = eventType === 'sauna' ? 45 : 20; // minutes
+  const recoveryDuration = eventType === 'sauna' ? 45 : eventType === 'swim' ? 30 : 20;
   if (minutesAfterEvent > recoveryDuration) return null;
 
   const t = minutesAfterEvent / recoveryDuration;
@@ -289,6 +329,8 @@ const COLUMNS = [
   'Blood Oxygen Saturation (%)',
   'Step Count (count)',
   'Walking + Running Distance (km)',
+  'Swimming Distance (m)',
+  'Swimming Stroke Count (count)',
 ];
 
 function formatDate(date: Date): string {
@@ -319,6 +361,8 @@ function csvRow(dateStr: string, rec: MinuteRecord): string {
     rec.bloodOxygen !== null ? rec.bloodOxygen.toFixed(0) : '',
     rec.stepCount !== null ? Math.round(rec.stepCount).toString() : '',
     rec.walkingDistance !== null ? rec.walkingDistance.toFixed(3) : '',
+    rec.swimmingDistance !== null ? rec.swimmingDistance.toFixed(1) : '',
+    rec.swimmingStrokeCount !== null ? Math.round(rec.swimmingStrokeCount).toString() : '',
   ];
   return vals.join(',');
 }
@@ -330,6 +374,7 @@ function emptyRecord(): MinuteRecord {
     respiratoryRate: null, sleepTotal: null, sleepAsleep: null,
     sleepCore: null, sleepDeep: null, sleepREM: null,
     sleepAwake: null, bloodOxygen: null, walkingDistance: null,
+    swimmingDistance: null, swimmingStrokeCount: null,
   };
 }
 
@@ -353,7 +398,7 @@ function generate(): string {
       start: number;
       end: number;
       peakHR: number;
-      type: 'sauna' | 'walk' | 'workout';
+      type: 'sauna' | 'walk' | 'workout' | 'swim';
     }> = [];
 
     // Pre-compute event info
@@ -363,6 +408,8 @@ function generate(): string {
         let hr: number;
         if (ev.type === 'sauna') {
           hr = saunaHR(m, ev.durationMinutes);
+        } else if (ev.type === 'swim') {
+          hr = swimHR(m, ev.durationMinutes);
         } else {
           hr = walkHR(m, ev.durationMinutes);
         }
@@ -415,7 +462,7 @@ function generate(): string {
       let inRecovery: {
         minutesAfter: number;
         peakHR: number;
-        type: 'sauna' | 'walk' | 'workout';
+        type: 'sauna' | 'walk' | 'workout' | 'swim';
       } | null = null;
 
       // Check if in an event
@@ -460,6 +507,8 @@ function generate(): string {
         const mInto = minute - inEvent.startMinute;
         if (inEvent.type === 'sauna') {
           hr = saunaHR(mInto, inEvent.durationMinutes);
+        } else if (inEvent.type === 'swim') {
+          hr = swimHR(mInto, inEvent.durationMinutes);
         } else {
           hr = walkHR(mInto, inEvent.durationMinutes);
         }
@@ -504,6 +553,23 @@ function generate(): string {
       if (inEvent && inEvent.type === 'sauna') {
         rec.activeEnergy = randFloat(3, 8);
         rec.stepCount = 0;
+      }
+
+      // Swim data: swimming distance and strokes per minute, zero steps
+      if (inEvent && inEvent.type === 'swim') {
+        const mInto = minute - inEvent.startMinute;
+        const t = mInto / inEvent.durationMinutes;
+        // ~25m per lap, ~1-2 laps per minute, with rest intervals
+        const isResting = Math.sin(mInto * 0.7) > 0.6; // periodic rest at wall
+        if (!isResting && t > 0.05 && t < 0.95) {
+          rec.swimmingDistance = randFloat(20, 55); // meters per minute
+          rec.swimmingStrokeCount = randInt(15, 35); // strokes per minute
+        } else {
+          rec.swimmingDistance = randFloat(0, 10); // minimal during rest/transition
+          rec.swimmingStrokeCount = randInt(0, 5);
+        }
+        rec.stepCount = 0;
+        rec.activeEnergy = randFloat(10, 25);
       }
 
       // HRV: every 15-45 minutes, more frequent during sleep and post-activity

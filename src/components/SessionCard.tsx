@@ -4,6 +4,7 @@ const LABEL_NAMES: Record<string, string> = {
   sauna: 'Sauna',
   walk: 'Walk',
   workout: 'Workout',
+  swim: 'Swim',
   cold_plunge: 'Cold Plunge',
   other: 'Activity',
 };

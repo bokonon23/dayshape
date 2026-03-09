@@ -16,6 +16,8 @@ export interface HealthRecord {
   sleepAwake: number | null;
   bloodOxygen: number | null;
   walkingDistance: number | null;
+  swimmingDistance: number | null;
+  swimmingStrokeCount: number | null;
 }
 
 export interface DayData {
@@ -24,7 +26,7 @@ export interface DayData {
   baselineHR: number | null;
 }
 
-export type ActivityType = 'sauna' | 'walk' | 'workout' | 'cold_plunge' | 'other';
+export type ActivityType = 'sauna' | 'walk' | 'workout' | 'swim' | 'cold_plunge' | 'other';
 
 export interface DetectedEvent {
   id: string;
@@ -42,6 +44,7 @@ export interface DetectedEvent {
   totalSteps: number;
   hrvChangePercent: number | null;
   avgStepsPerMinute: number;
+  totalSwimmingDistance: number;
   label: ActivityType | null;
   confirmed: boolean;
   dismissed: boolean;

@@ -18,6 +18,7 @@ const LABEL_COLORS: Record<string, string> = {
   sauna: '#f97316',
   walk: '#22c55e',
   workout: '#3b82f6',
+  swim: '#0ea5e9',
   cold_plunge: '#06b6d4',
   other: '#9ca3af',
 };
@@ -26,6 +27,7 @@ const LABEL_NAMES: Record<string, string> = {
   sauna: 'Sauna',
   walk: 'Walk',
   workout: 'Workout',
+  swim: 'Swim',
   cold_plunge: 'Cold Plunge',
   other: 'Other',
 };
