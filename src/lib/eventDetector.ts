@@ -16,13 +16,12 @@ const MIN_DURATION_MINUTES = 3;       // minimum duration of elevated HR
 const RAMP_WINDOW_MINUTES = 10;       // look back for ramp-up before first spike
 
 // === Walk detection thresholds ===
-const WALK_MIN_HR = 80;               // minimum HR to consider (absolute, not relative)
-const WALK_ELEVATION_BPM = 15;        // HR must be at least baseline + this
-const WALK_MAX_HR_MULTIPLIER = 1.85;  // below this = not a high-intensity event
+// Step-count-primary: sustained stepping is the main signal, HR is optional.
+// This works for all ages including older users with lower HR elevation.
+const WALK_MIN_STEPS_PER_MIN = 30;    // minute qualifies as "actively walking"
 const WALK_MIN_DURATION = 10;         // must last at least 10 minutes
-const WALK_MIN_STEPS = 500;           // must have substantial steps
-const WALK_MIN_STEPS_PER_MIN = 30;    // must have consistent stepping
-const WALK_GAP_TOLERANCE = 5;         // minutes gap allowed between elevated walk readings
+const WALK_MIN_TOTAL_STEPS = 400;     // must accumulate meaningful steps
+const WALK_GAP_TOLERANCE = 3;         // minutes gap allowed between walking minutes
 
 function formatDateId(d: Date): string {
   const yyyy = d.getFullYear();
@@ -236,8 +235,11 @@ function detectHighIntensityEvents(
 /**
  * Pass 2: Detect walk events.
  *
- * Walks are moderate HR elevation (baseline+15 to ~1.85x baseline) with
- * consistent stepping (>30 steps/min), lasting >10 minutes.
+ * Step-count-primary detection: any minute with ≥30 steps counts as
+ * "actively walking". Sustained walking (≥10 min, ≥400 total steps)
+ * is flagged as a walk event. HR thresholds are NOT required — this
+ * works for all ages, including older users with lower HR elevation.
+ *
  * Only detects in time windows not already covered by high-intensity events.
  */
 function detectWalkEvents(
@@ -245,33 +247,22 @@ function detectWalkEvents(
   baselineHR: number,
   existingEvents: DetectedEvent[]
 ): DetectedEvent[] {
-  const walkThreshold = Math.max(WALK_MIN_HR, baselineHR + WALK_ELEVATION_BPM);
-  const walkCeiling = baselineHR * WALK_MAX_HR_MULTIPLIER;
-
-  // Find readings that look like walking: moderate HR, steps present
+  // Find minutes with active stepping
   const walkLike: number[] = [];
   for (let i = 0; i < records.length; i++) {
-    const r = records[i];
-    const hr = r.heartRateAvg;
-    const steps = r.stepCount;
-    if (
-      hr !== null &&
-      hr >= walkThreshold &&
-      hr <= walkCeiling &&
-      steps !== null &&
-      steps > 0
-    ) {
+    const steps = records[i].stepCount;
+    if (steps !== null && steps >= WALK_MIN_STEPS_PER_MIN) {
       walkLike.push(i);
     }
   }
 
   if (walkLike.length === 0) return [];
 
-  // Group into contiguous windows
+  // Group into contiguous windows (allow short gaps)
   const windows: ElevatedWindow[] = [];
   let wStart = walkLike[0];
   let wEnd = walkLike[0];
-  let wPeakHR = records[walkLike[0]].heartRateAvg!;
+  let wPeakHR = records[walkLike[0]].heartRateAvg ?? 0;
   let wPeakIdx = walkLike[0];
 
   for (let i = 1; i < walkLike.length; i++) {
@@ -283,7 +274,7 @@ function detectWalkEvents(
 
     if (gap <= WALK_GAP_TOLERANCE) {
       wEnd = idx;
-      const hr = records[idx].heartRateAvg!;
+      const hr = records[idx].heartRateAvg ?? 0;
       if (hr > wPeakHR) {
         wPeakHR = hr;
         wPeakIdx = idx;
@@ -292,7 +283,7 @@ function detectWalkEvents(
       windows.push({ startIdx: wStart, endIdx: wEnd, peakHR: wPeakHR, peakIdx: wPeakIdx });
       wStart = idx;
       wEnd = idx;
-      wPeakHR = records[idx].heartRateAvg!;
+      wPeakHR = records[idx].heartRateAvg ?? 0;
       wPeakIdx = idx;
     }
   }
@@ -311,7 +302,7 @@ function detectWalkEvents(
     // Skip if overlaps with an existing high-intensity event
     if (overlapsExisting(startTime, endTime, existingEvents)) continue;
 
-    // Compute steps
+    // Compute steps and energy
     let totalSteps = 0;
     let activeEnergyKJ = 0;
     for (let i = w.startIdx; i <= w.endIdx; i++) {
@@ -319,10 +310,9 @@ function detectWalkEvents(
       if (records[i].activeEnergy !== null) activeEnergyKJ += records[i].activeEnergy!;
     }
 
-    if (totalSteps < WALK_MIN_STEPS) continue;
+    if (totalSteps < WALK_MIN_TOTAL_STEPS) continue;
 
     const avgStepsPerMinute = totalSteps / Math.max(durationMinutes, 1);
-    if (avgStepsPerMinute < WALK_MIN_STEPS_PER_MIN) continue;
 
     // Find HRV context
     const preHRV = findNearestHRV(records, startTime, 120);
@@ -339,11 +329,11 @@ function detectWalkEvents(
       peakHR: w.peakHR,
       peakTime: records[w.peakIdx].timestamp,
       durationMinutes: Math.round(durationMinutes),
-      recoveryMinutes: null, // walks don't need recovery tracking
+      recoveryMinutes: null,
       recoveryEndTime: null,
       preHRV,
       postHRV,
-      elevationAboveBaseline: w.peakHR - baselineHR,
+      elevationAboveBaseline: w.peakHR > 0 ? w.peakHR - baselineHR : null,
       activeEnergyKJ,
       totalSteps: Math.round(totalSteps),
       hrvChangePercent,
